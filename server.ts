@@ -1,6 +1,7 @@
 // Express backend server: API routes, DB init, and static serving.
 
 import express from "express";
+import Database from "better-sqlite3";
 import path from "path";
 import { createDatabase, getDatabaseConfig } from "./src/db";
 import { fileURLToPath } from "url";
