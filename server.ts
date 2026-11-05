@@ -38,8 +38,14 @@ if (!process.env.NODE_ENV) {
 }
 
 // JWT_SECRET must be set and strong in production
-const rawJwtSecret = process.env.JWT_SECRET || "";
+const rawJwtSecret = (process.env.JWT_SECRET || "").trim();
 const isProduction = process.env.NODE_ENV === "production";
+
+// Diagnostic: print only set/length, never values
+console.log("[ENV] JWT_SECRET set:", !!rawJwtSecret, "length:", rawJwtSecret.length);
+console.log("[ENV] ADMIN_PASSWORD set:", !!ADMIN_PASSWORD, "length:", ADMIN_PASSWORD.length);
+console.log("[ENV] RAILWAY_ENVIRONMENT:", process.env.RAILWAY_ENVIRONMENT || "(unset)");
+console.log("[ENV] RAILWAY_SERVICE_NAME:", process.env.RAILWAY_SERVICE_NAME || "(unset)");
 
 // Validate required environment variables up front (production only)
 const envErrors: string[] = [];
@@ -47,14 +53,14 @@ if (isProduction) {
   if (!rawJwtSecret) {
     envErrors.push("JWT_SECRET is missing");
   } else if (rawJwtSecret.length < 32) {
-    envErrors.push("JWT_SECRET is too short (minimum 32 characters)");
+    envErrors.push("JWT_SECRET is too short (minimum 32 characters, got " + rawJwtSecret.length + ")");
   } else if (rawJwtSecret.includes("change-in-production") || rawJwtSecret.includes("your-super-secret")) {
     envErrors.push("JWT_SECRET is a placeholder value");
   }
   if (!ADMIN_PASSWORD) {
     envErrors.push("ADMIN_PASSWORD is missing");
   } else if (ADMIN_PASSWORD.length < 12) {
-    envErrors.push("ADMIN_PASSWORD is too short (minimum 12 characters)");
+    envErrors.push("ADMIN_PASSWORD is too short (minimum 12 characters, got " + ADMIN_PASSWORD.length + ")");
   } else if (ADMIN_PASSWORD.includes("change-me") || ADMIN_PASSWORD.includes("change-me-to")) {
     envErrors.push("ADMIN_PASSWORD is a placeholder value");
   }
@@ -193,11 +199,19 @@ function initializeDatabase() {
       console.warn(`[DB] Blocked attempt to add column ${column} to table ${table} - not in allowlist`);
       return;
     }
+
+    // Idempotent: skip if column already exists
+    try {
+      const cols = db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
+      if (cols.some((c) => c.name === column)) return;
+    } catch {
+      // ignore
+    }
     
     try {
       db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${defaultVal}`);
     } catch (e) {
-      // Column already exists
+      // Column already exists or other non-fatal error
     }
   };
 
