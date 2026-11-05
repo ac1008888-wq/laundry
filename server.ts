@@ -515,15 +515,16 @@ addColumnIfNotExists("reviews", "photos", "TEXT"); // JSON array of image URLs
      bandSeed.run(10, 9999, 180, 4);
    }
 
-  // Seed default admin user if admin_users table is empty
-  const adminCount = db.prepare("SELECT COUNT(*) as count FROM admin_users").get() as { count: number };
-  if (adminCount.count === 0) {
-    const defaultAdminPassword = "admin123";
-     // Use higher cost factor (12) for better security
-    const hashedPassword = bcrypt.hashSync(defaultAdminPassword, 12);
-    const adminSeed = db.prepare("INSERT INTO admin_users (username, password_hash, role) VALUES (?, ?, ?)");
-    adminSeed.run("admin", hashedPassword, "super_admin");
+  // Ensure default admin user exists with known credentials
+  const adminRow = db.prepare("SELECT id FROM admin_users WHERE username = ?").get("admin") as { id: number } | undefined;
+  const defaultAdminPassword = "admin123";
+  const hashedPassword = bcrypt.hashSync(defaultAdminPassword, 12);
+  if (!adminRow) {
+    db.prepare("INSERT INTO admin_users (username, password_hash, role) VALUES (?, ?, ?)").run("admin", hashedPassword, "super_admin");
     console.log("[DB] Default admin user created (username: admin, password: admin123)");
+  } else {
+    db.prepare("UPDATE admin_users SET password_hash = ?, role = 'super_admin' WHERE username = ?").run(hashedPassword, "admin");
+    console.log("[DB] Default admin user password reset (username: admin, password: admin123)");
   }
 
   console.log("[DB] Database initialized with indexes");
