@@ -40,32 +40,32 @@ if (!process.env.NODE_ENV) {
 // JWT_SECRET must be set and strong in production
 const rawJwtSecret = process.env.JWT_SECRET || "";
 const isProduction = process.env.NODE_ENV === "production";
-if (!rawJwtSecret) {
-  if (isProduction) {
-    console.warn("[WARN] JWT_SECRET is missing — using a temporary generated secret. Set a strong JWT_SECRET in Railway variables.");
-  } else {
-    console.warn("[WARN] JWT_SECRET is missing — using a temporary development secret. Set a strong JWT_SECRET in .env.");
+
+// Validate required environment variables up front (production only)
+const missingEnv: string[] = [];
+if (isProduction) {
+  if (!rawJwtSecret || rawJwtSecret.length < 32 || rawJwtSecret.includes("change-in-production") || rawJwtSecret.includes("your-super-secret")) {
+    missingEnv.push("JWT_SECRET (>=32 chars, not a placeholder)");
   }
-} else if (rawJwtSecret.length < 32 || rawJwtSecret.includes("change-in-production") || rawJwtSecret.includes("your-super-secret")) {
-  if (isProduction) {
-    console.warn("[WARN] JWT_SECRET is weak — using a temporary generated secret. Set a strong JWT_SECRET in Railway variables.");
-  } else {
-    console.warn("[WARN] JWT_SECRET is weak — using a temporary development secret. Set a strong JWT_SECRET in .env.");
+  if (!ADMIN_PASSWORD || ADMIN_PASSWORD.length < 12 || ADMIN_PASSWORD.includes("change-me") || ADMIN_PASSWORD.includes("change-me-to")) {
+    missingEnv.push("ADMIN_PASSWORD (>=12 chars, not a placeholder)");
+  }
+  if (missingEnv.length > 0) {
+    throw new Error("Missing/invalid required environment variables: " + missingEnv.join("; "));
+  }
+} else {
+  if (!rawJwtSecret || rawJwtSecret.length < 32 || rawJwtSecret.includes("change-in-production") || rawJwtSecret.includes("your-super-secret")) {
+    console.warn("[WARN] JWT_SECRET is missing/weak — using a temporary development secret. Set a strong JWT_SECRET in .env.");
+  }
+  if (!ADMIN_PASSWORD || ADMIN_PASSWORD.length < 12 || ADMIN_PASSWORD.includes("change-me") || ADMIN_PASSWORD.includes("change-me-to")) {
+    console.warn("[WARN] ADMIN_PASSWORD missing/weak — using default 'admin12345678'. Set a strong ADMIN_PASSWORD in .env.");
+    ADMIN_PASSWORD = "admin12345678";
   }
 }
+
 const JWT_SECRET = rawJwtSecret && rawJwtSecret.length >= 32 && !rawJwtSecret.includes("change-in-production") && !rawJwtSecret.includes("your-super-secret")
   ? rawJwtSecret
   : uuidv4();
-
-// Pre-hash admin password once at startup for secure comparison
-if (!ADMIN_PASSWORD || ADMIN_PASSWORD.length < 12 || ADMIN_PASSWORD.includes("change-me") || ADMIN_PASSWORD.includes("change-me-to")) {
-  if (isProduction) {
-    console.warn("[WARN] ADMIN_PASSWORD missing/weak — using default 'admin12345678'. Set ADMIN_PASSWORD in Railway variables.");
-  } else {
-    console.warn("[WARN] ADMIN_PASSWORD missing/weak — using default 'admin12345678'. Set a strong ADMIN_PASSWORD in .env.");
-  }
-  ADMIN_PASSWORD = "admin12345678";
-}
 // Use higher cost factor (12) for better security against brute force
 const HASHED_ADMIN_PASSWORD = bcrypt.hashSync(ADMIN_PASSWORD, 12);
 
