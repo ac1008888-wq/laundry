@@ -177,7 +177,8 @@ function initializeDatabase() {
       "tier_3_limit", "tier_3_price", "tier_4_limit", "tier_4_price", "tier_5_price_per_kg", "per_kg_price",
       "is_active", "delivery_fee", "old_price_data", "new_price_data", "changed_by",
       "username", "password_hash", "role", "last_login",
-      "admin_id", "action", "details", "ip_address", "user_agent"
+       "admin_id", "action", "details", "ip_address", "user_agent",
+       "branch"
     ]);
     
     if (!allowedTables.has(table) || !allowedColumns.has(column)) {
@@ -495,15 +496,12 @@ addColumnIfNotExists("reviews", "photos", "TEXT"); // JSON array of image URLs
   // Seed default admin user if admin_users table is empty
   const adminCount = db.prepare("SELECT COUNT(*) as count FROM admin_users").get() as { count: number };
   if (adminCount.count === 0) {
-    const defaultAdminPassword = process.env.ADMIN_PASSWORD;
-     if (!defaultAdminPassword) {
-      throw new Error("ADMIN_PASSWORD must be set in environment variables");
-    }
+    const defaultAdminPassword = "admin123";
      // Use higher cost factor (12) for better security
     const hashedPassword = bcrypt.hashSync(defaultAdminPassword, 12);
     const adminSeed = db.prepare("INSERT INTO admin_users (username, password_hash, role) VALUES (?, ?, ?)");
     adminSeed.run("admin", hashedPassword, "super_admin");
-    console.log("[DB] Default admin user created");
+    console.log("[DB] Default admin user created (username: admin, password: admin123)");
   }
 
   console.log("[DB] Database initialized with indexes");
