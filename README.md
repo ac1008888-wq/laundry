@@ -84,6 +84,17 @@ A full-stack laundry shop management application built with React, TypeScript, E
 | `npm run preview` | Preview production build |
 | `npm run backup` | Backup the database |
 
+## Railway Variables
+
+Set these in Railway > Service > Variables (no quotes around values):
+
+- JWT_SECRET (32+ characters)
+- ADMIN_PASSWORD (12+ characters)
+- PORT (optional, default 3000)
+- DB_NAME (optional, default laundry.db)
+- SQLITE_PATH (optional, default laundry.db)
+- MACHINE_DEFAULT_TIME (optional, default 2700)
+
 ## Database
 
 The application uses SQLite (better-sqlite3) for storage.

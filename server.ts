@@ -42,16 +42,24 @@ const rawJwtSecret = process.env.JWT_SECRET || "";
 const isProduction = process.env.NODE_ENV === "production";
 
 // Validate required environment variables up front (production only)
-const missingEnv: string[] = [];
+const envErrors: string[] = [];
 if (isProduction) {
-  if (!rawJwtSecret || rawJwtSecret.length < 32 || rawJwtSecret.includes("change-in-production") || rawJwtSecret.includes("your-super-secret")) {
-    missingEnv.push("JWT_SECRET (>=32 chars, not a placeholder)");
+  if (!rawJwtSecret) {
+    envErrors.push("JWT_SECRET is missing");
+  } else if (rawJwtSecret.length < 32) {
+    envErrors.push("JWT_SECRET is too short (minimum 32 characters)");
+  } else if (rawJwtSecret.includes("change-in-production") || rawJwtSecret.includes("your-super-secret")) {
+    envErrors.push("JWT_SECRET is a placeholder value");
   }
-  if (!ADMIN_PASSWORD || ADMIN_PASSWORD.length < 12 || ADMIN_PASSWORD.includes("change-me") || ADMIN_PASSWORD.includes("change-me-to")) {
-    missingEnv.push("ADMIN_PASSWORD (>=12 chars, not a placeholder)");
+  if (!ADMIN_PASSWORD) {
+    envErrors.push("ADMIN_PASSWORD is missing");
+  } else if (ADMIN_PASSWORD.length < 12) {
+    envErrors.push("ADMIN_PASSWORD is too short (minimum 12 characters)");
+  } else if (ADMIN_PASSWORD.includes("change-me") || ADMIN_PASSWORD.includes("change-me-to")) {
+    envErrors.push("ADMIN_PASSWORD is a placeholder value");
   }
-  if (missingEnv.length > 0) {
-    throw new Error("Missing/invalid required environment variables: " + missingEnv.join("; "));
+  if (envErrors.length > 0) {
+    throw new Error("Missing/invalid required environment variables:\n- " + envErrors.join("\n- "));
   }
 } else {
   if (!rawJwtSecret || rawJwtSecret.length < 32 || rawJwtSecret.includes("change-in-production") || rawJwtSecret.includes("your-super-secret")) {
