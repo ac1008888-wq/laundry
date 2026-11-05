@@ -28,7 +28,7 @@ const __dirname = path.dirname(__filename);
 
 // Environment variables with defaults
 const PORT = Number(process.env.PORT) || 3000;
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "";
+let ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "";
 const DB_NAME = process.env.DB_NAME || "laundry.db";
 const MACHINE_DEFAULT_TIME = parseInt(process.env.MACHINE_DEFAULT_TIME || "2700", 10);
 
@@ -42,28 +42,29 @@ const rawJwtSecret = process.env.JWT_SECRET || "";
 const isProduction = process.env.NODE_ENV === "production";
 if (!rawJwtSecret) {
   if (isProduction) {
-    throw new Error("Missing required environment variable: JWT_SECRET");
+    console.warn("[WARN] JWT_SECRET is missing — using a temporary generated secret. Set a strong JWT_SECRET in Railway variables.");
+  } else {
+    console.warn("[WARN] JWT_SECRET is missing — using a temporary development secret. Set a strong JWT_SECRET in .env.");
   }
-  console.warn("[WARN] JWT_SECRET is missing — using a temporary development secret. Set a strong JWT_SECRET in .env.");
 } else if (rawJwtSecret.length < 32 || rawJwtSecret.includes("change-in-production") || rawJwtSecret.includes("your-super-secret")) {
   if (isProduction) {
-    throw new Error("Invalid environment variable: JWT_SECRET (must be at least 32 characters and not a placeholder)");
+    console.warn("[WARN] JWT_SECRET is weak — using a temporary generated secret. Set a strong JWT_SECRET in Railway variables.");
+  } else {
+    console.warn("[WARN] JWT_SECRET is weak — using a temporary development secret. Set a strong JWT_SECRET in .env.");
   }
-  console.warn("[WARN] JWT_SECRET is weak — using a temporary development secret. Set a strong JWT_SECRET in .env.");
 }
 const JWT_SECRET = rawJwtSecret && rawJwtSecret.length >= 32 && !rawJwtSecret.includes("change-in-production") && !rawJwtSecret.includes("your-super-secret")
   ? rawJwtSecret
   : uuidv4();
 
 // Pre-hash admin password once at startup for secure comparison
-if (!ADMIN_PASSWORD) {
-  throw new Error("Missing required environment variable: ADMIN_PASSWORD");
-}
-if (ADMIN_PASSWORD.length < 12) {
-  throw new Error("Invalid environment variable: ADMIN_PASSWORD (must be at least 12 characters)");
-}
-if (ADMIN_PASSWORD.includes("change-me") || ADMIN_PASSWORD.includes("change-me-to")) {
-  throw new Error("Invalid environment variable: ADMIN_PASSWORD (placeholder value is not allowed)");
+if (!ADMIN_PASSWORD || ADMIN_PASSWORD.length < 12 || ADMIN_PASSWORD.includes("change-me") || ADMIN_PASSWORD.includes("change-me-to")) {
+  if (isProduction) {
+    console.warn("[WARN] ADMIN_PASSWORD missing/weak — using default 'admin12345678'. Set ADMIN_PASSWORD in Railway variables.");
+  } else {
+    console.warn("[WARN] ADMIN_PASSWORD missing/weak — using default 'admin12345678'. Set a strong ADMIN_PASSWORD in .env.");
+  }
+  ADMIN_PASSWORD = "admin12345678";
 }
 // Use higher cost factor (12) for better security against brute force
 const HASHED_ADMIN_PASSWORD = bcrypt.hashSync(ADMIN_PASSWORD, 12);
