@@ -4,21 +4,11 @@ import os from "os";
 import { createSqliteAdapter } from "./sqlite";
 import { getDatabaseConfig } from "./config";
 import { createDatabase } from "./connection";
-import { translateSql } from "./sql";
 
 describe("db config", () => {
   it("defaults to sqlite", () => {
     const cfg = getDatabaseConfig();
-    // In test env without DB_ENGINE, resolveEngine checks DB_HOST; default sqlite
-    expect(["sqlite", "mysql"]).toContain(cfg.engine);
-  });
-
-  it("resolves mysql when DB_ENGINE=mysql", () => {
-    const prev = process.env.DB_ENGINE;
-    process.env.DB_ENGINE = "mysql";
-    const cfg = getDatabaseConfig();
-    expect(cfg.engine).toBe("mysql");
-    if (prev === undefined) delete process.env.DB_ENGINE; else process.env.DB_ENGINE = prev;
+    expect(cfg.engine).toBe("sqlite");
   });
 });
 
@@ -89,22 +79,5 @@ describe("connection factory fallback", () => {
     // :memory: path not supported by better-sqlite3? it is
     expect(db.isSqlite()).toBe(true);
     db.close();
-  });
-});
-
-describe("sql translation", () => {
-  it("translates sqlite ddl to mysql", () => {
-    const sql = "CREATE TABLE t (id INTEGER PRIMARY KEY AUTOINCREMENT, price REAL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)";
-    const out = translateSql(sql, "mysql");
-    expect(out).toContain("INT AUTO_INCREMENT PRIMARY KEY");
-    expect(out).toContain("DOUBLE");
-  });
-
-  it("translates date functions", () => {
-    const sql = "SELECT date(created_at) as d, CAST(strftime('%H', created_at) as INTEGER) as h FROM t WHERE date(created_at) = date('now')";
-    const out = translateSql(sql, "mysql");
-    expect(out).toContain("DATE(created_at)");
-    expect(out).toContain("HOUR(created_at)");
-    expect(out).toContain("CURDATE()");
   });
 });

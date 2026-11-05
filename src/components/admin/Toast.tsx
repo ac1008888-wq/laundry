@@ -1,5 +1,3 @@
-// Toast notification system: provider, context, and auto-dismissing toasts.
-
 import React, { useEffect, useCallback, useState, createContext, useContext, ReactNode } from 'react';
 import { CheckCircle2, AlertCircle, X } from 'lucide-react';
 

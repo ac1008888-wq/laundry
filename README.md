@@ -4,7 +4,7 @@
 
 # Laundry Management System
 
-A full-stack laundry shop management application built with React, TypeScript, Express, and a dual-database layer (MySQL primary, SQLite fallback).
+A full-stack laundry shop management application built with React, TypeScript, Express, and SQLite.
 
 ## Features
 
@@ -18,7 +18,7 @@ A full-stack laundry shop management application built with React, TypeScript, E
 ## Tech Stack
 
 - **Frontend**: React 19, TypeScript, TailwindCSS, Motion
-- **Backend**: Express.js, dual-database (MySQL primary, SQLite fallback)
+- **Backend**: Express.js, SQLite
 - **Authentication**: JWT (JSON Web Tokens)
 - **Build Tool**: Vite
 
@@ -86,24 +86,12 @@ A full-stack laundry shop management application built with React, TypeScript, E
 
 ## Database
 
-The application supports two engines selected via `DB_ENGINE`:
+The application uses SQLite (better-sqlite3) for storage.
 
-- `sqlite` (default) — zero-config, file-based, fully supported fallback.
-- `mysql` — recommended for production.
-
-See `.env.example` for all variables and `docs/MIGRATION_PLAN.md` for migration steps.
-
-### Prerequisites (MySQL)
-- MySQL 8.0+ server
-- A database user with CREATE/ALTER/INSERT/UPDATE/DELETE privileges
-
-### Migration Commands
+### Commands
 - Backup SQLite: `npm run backup`
 - Run tests: `npm test`
 - Type check: `npm run lint`
-
-### Rollback
-Set `DB_ENGINE=sqlite` (or `DB_FALLBACK_TO_SQLITE=true`) and restart.
 
 ## License
 MIT

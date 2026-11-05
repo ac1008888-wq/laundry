@@ -49,17 +49,8 @@ the API will not work. For a fully working site use option B.
    JWT_SECRET=<openssl rand -base64 32>
    ADMIN_PASSWORD=<strong, >=12 chars>
     DB_NAME=laundry.db
-    # Use MySQL/MariaDB on Hostinger (SQLite is not supported on shared hosting)
-    DB_ENGINE=mysql
-    DB_FALLBACK_TO_SQLITE=false
-    DB_HOST=<hostinger-mysql-host>
-    DB_PORT=3306
-    DB_USER=<mysql-user>
-    DB_PASSWORD=<mysql-password>
-    DB_DATABASE=<mysql-database>  # DB_NAME is also accepted for the MySQL database name
-    # Frontend build (separate deployment): VITE_API_URL=https://api.happywashlaundry.online
-    DB_SSL=false
-    DB_POOL_SIZE=10
+     SQLITE_PATH=laundry.db
+     # Frontend build (separate deployment): VITE_API_URL=https://api.happywashlaundry.online
     MACHINE_DEFAULT_TIME=2700
    ALLOWED_ORIGINS=https://yourdomain.com
    SMTP_HOST=...
@@ -74,7 +65,7 @@ the API will not work. For a fully working site use option B.
 4. `better-sqlite3` is a native module; ensure the host runs `npm install`
    on Linux so it is rebuilt for the host platform.
 5. SQLite file (`laundry.db`) is created on first boot. Use a persistent
-   disk or migrate to MySQL for durable data.
+    disk for durable data.
 6. Health check: `curl https://yourdomain.com/api/health`
    Expected: `{"success":true,"data":{"status":"ok","database":"connected"}}`.
 

@@ -1,5 +1,3 @@
-// Admin dashboard: orders, machines, queue, and overview management.
-
 import React, { useState, useEffect, useRef } from 'react';
 import {
   LayoutDashboard,
@@ -55,11 +53,9 @@ import AdminNavbar from './AdminNavbar';
 import { calculatePrice, calculateGrandTotalWithMap, calculatePriceWithFallback, FALLBACK_PRICING } from '../../utils/pricing';
 import { getDeliveryFee } from '../../utils/sharedPricing';
 import { calculateDeliveryFeeFromConfig } from '../../utils/sharedPricing';
-import { BRANCHES } from '../../utils/branches';
-import { getDeliveryFeeByBranch, TIER4_DEFAULT_FEE, TIER4_MIN_FEE, TIER4_MAX_FEE, DELIVERY_TIERS } from '../../utils/deliveryTiers';
 import type { Pricing, PriceHistory, Review, Transaction, Machine, Stats, TransactionStatus, PaginationMeta, DeliveryConfig } from '../../types';
 import type { PricingConfig } from '../../utils/sharedPricing';
-import { getTransactionsPage, getStats, getMachines, getReviews, getPricing, getPriceHistory, verifyAdminToken, updateMachine as apiUpdateMachine, resetMachines as apiResetMachines, deleteTransaction as apiDeleteTransaction, deleteCustomer as apiDeleteCustomer, updatePricing as apiUpdatePricing, createWalkInOrder, getAuthFetchOptions, deletePriceHistory, parseResponseJson, API_BASE } from '../../utils/api';
+import { getTransactions, getTransactionsPage, getStats, getMachines, getReviews, getPricing, getPriceHistory, verifyAdminToken, updateMachine as apiUpdateMachine, resetMachines as apiResetMachines, deleteTransaction as apiDeleteTransaction, deleteCustomer as apiDeleteCustomer, updatePricing as apiUpdatePricing, createWalkInOrder, getAuthFetchOptions, deletePriceHistory, parseResponseJson } from '../../utils/api';
 import { useToast } from './Toast';
 
 const PAGE_SIZE_OPTIONS = [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75];
@@ -133,12 +129,11 @@ const WalkInOrderForm = ({ machines, pricingMap, onOrderCreated }: WalkInOrderFo
     special_instructions: '',
     delivery_method: 'pickup' as 'pickup' | 'delivery',
     address: '',
-    branch: '',
     delivery_zone_id: null as number | null,
   });
   const [deliveryConfig, setDeliveryConfig] = useState<DeliveryConfig | null>(null);
   useEffect(() => {
-    fetch(`${API_BASE}/delivery/config`, { credentials: 'include' })
+    fetch('/api/delivery/config', { credentials: 'include' })
       .then(res => res.json())
       .then(data => { if (data.success && data.data) setDeliveryConfig(data.data); })
       .catch(() => {});
@@ -323,23 +318,18 @@ const WalkInOrderForm = ({ machines, pricingMap, onOrderCreated }: WalkInOrderFo
           setConfirmationLoading(false);
           return;
         }
-         const combinedAddress = formData.delivery_method === 'delivery' && formData.branch
-           ? `${formData.address.trim()}, ${formData.branch}`
-           : formData.address;
-         const body = showMultiItem
-           ? {
-               ...formData,
-               address: combinedAddress,
-               branch: undefined,
-               items: items.map(item => ({
-                 service_type: item.service_type,
-                 quantity: item.quantity,
-                 unit_price: item.unit_price,
-               })),
-             }
-           : { ...formData, address: combinedAddress, branch: undefined };
+        const body = showMultiItem
+          ? {
+              ...formData,
+              items: items.map(item => ({
+                service_type: item.service_type,
+                quantity: item.quantity,
+                unit_price: item.unit_price,
+              })),
+            }
+          : formData;
    
-        const res = await fetch(`${API_BASE}/transactions`, {
+        const res = await fetch('/api/transactions', {
            method: 'POST',
            headers: { 'Content-Type': 'application/json' },
            credentials: 'include',
@@ -372,11 +362,10 @@ const WalkInOrderForm = ({ machines, pricingMap, onOrderCreated }: WalkInOrderFo
       service_type: 'Wash & Fold (Clothes)',
       quantity: 1,
       special_instructions: '',
-        delivery_method: 'pickup' as 'pickup' | 'delivery',
-        address: '',
-        branch: '',
-        delivery_zone_id: null,
-      });
+       delivery_method: 'pickup' as 'pickup' | 'delivery',
+       address: '',
+       delivery_zone_id: null,
+     });
      setItems([]);
     setShowMultiItem(false);
     setCreatedTransaction(null);
@@ -744,33 +733,21 @@ const WalkInOrderForm = ({ machines, pricingMap, onOrderCreated }: WalkInOrderFo
             </div>
           </div>
 
-           {formData.delivery_method === 'delivery' && (
-             <div className="space-y-4">
-               <label className="text-xs font-black text-zinc-400 uppercase tracking-widest flex items-center gap-2">
-                 <MapPin className="w-4 h-4" /> Barangay
-               </label>
-               <select
-                 className="w-full p-5 bg-zinc-50 border-4 border-transparent rounded-3xl focus:bg-white focus:border-blue-500 outline-none transition-all font-bold text-lg"
-                 value={formData.branch}
-                 onChange={e => setFormData({...formData, branch: e.target.value})}
-                 aria-label="Barangay"
-               >
-                 <option value="">Select barangay</option>
-                 {BRANCHES.map(b => <option key={b} value={b}>{b}</option>)}
-               </select>
-               <label className="text-xs font-black text-zinc-400 uppercase tracking-widest flex items-center gap-2">
-                 <MapPin className="w-4 h-4" /> Where are you?
-               </label>
-               <textarea
-                 required
-                 className="w-full p-5 bg-zinc-50 border-4 border-transparent rounded-3xl focus:bg-white focus:border-blue-500 outline-none transition-all font-bold text-lg"
-                 placeholder="123 Bubble Lane..."
-                 rows={3}
-                 value={formData.address}
-                 onChange={e => setFormData({...formData, address: e.target.value})}
-               />
-             </div>
-           )}
+          {formData.delivery_method === 'delivery' && (
+            <div className="space-y-4">
+              <label className="text-xs font-black text-zinc-400 uppercase tracking-widest flex items-center gap-2">
+                <MapPin className="w-4 h-4" /> Where are you?
+              </label>
+              <textarea
+                required
+                className="w-full p-5 bg-zinc-50 border-4 border-transparent rounded-3xl focus:bg-white focus:border-blue-500 outline-none transition-all font-bold text-lg"
+                placeholder="123 Bubble Lane..."
+                rows={3}
+                value={formData.address}
+                onChange={e => setFormData({...formData, address: e.target.value})}
+              />
+            </div>
+          )}
 
           <button
             disabled={loading}
@@ -1028,38 +1005,27 @@ const AdminDashboard = ({ setView }: AdminDashboardProps) => {
     appointment_time: '',
     delivery_method: 'pickup' as 'pickup' | 'delivery',
     address: '',
-    branch: '',
     payment_status: 'unpaid' as 'unpaid' | 'paid',
     delivery_zone_id: null as number | null,
   });
   const [deliveryConfig, setDeliveryConfig] = useState<DeliveryConfig | null>(null);
   const [walkInDeliveryQuote, setWalkInDeliveryQuote] = useState<{ distance_km: number; fee: number } | null>(null);
-  const [tier4Fee, setTier4Fee] = useState<number>(() => {
-    if (typeof window === 'undefined') return TIER4_DEFAULT_FEE;
-    const v = Number(localStorage.getItem('tier4Fee'));
-    return Number.isFinite(v) ? Math.min(TIER4_MAX_FEE, Math.max(TIER4_MIN_FEE, v)) : TIER4_DEFAULT_FEE;
-  });
-  const [showResetConfirm, setShowResetConfirm] = useState(false);
-  const [resettingMachines, setResettingMachines] = useState(false);
   useEffect(() => {
-    fetch(`${API_BASE}/delivery/config`, { credentials: 'include' })
+    fetch('/api/delivery/config', { credentials: 'include' })
       .then(res => res.json())
       .then(data => { if (data.success && data.data) setDeliveryConfig(data.data); })
       .catch(() => {});
   }, []);
   useEffect(() => {
-    const combinedAddress = walkInForm.delivery_method === 'delivery'
-      ? (walkInForm.branch ? `${walkInForm.address.trim()}, ${walkInForm.branch}` : walkInForm.address.trim())
-      : '';
-    if (walkInForm.delivery_method !== 'delivery' || !combinedAddress || combinedAddress.trim().length < 5) {
+    if (walkInForm.delivery_method !== 'delivery' || !walkInForm.address || walkInForm.address.trim().length < 5) {
       setWalkInDeliveryQuote(null);
       return;
     }
     const controller = new AbortController();
-    fetch(`${API_BASE}/delivery/quote`, {
+    fetch('/api/delivery/quote', {
       method: 'POST',
       ...getAuthFetchOptions(),
-      body: JSON.stringify({ address: combinedAddress }),
+      body: JSON.stringify({ address: walkInForm.address }),
       signal: controller.signal,
     })
       .then(res => res.json())
@@ -1069,7 +1035,7 @@ const AdminDashboard = ({ setView }: AdminDashboardProps) => {
       })
       .catch(() => { if (!controller.signal.aborted) setWalkInDeliveryQuote(null); });
     return () => controller.abort();
-  }, [walkInForm.delivery_method, walkInForm.address, walkInForm.branch]);
+  }, [walkInForm.delivery_method, walkInForm.address]);
   const [walkInLoading, setWalkInLoading] = useState(false);
   const [walkInDeliveryCoords, setWalkInDeliveryCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [walkInQuoting, setWalkInQuoting] = useState(false);
@@ -1079,7 +1045,7 @@ const AdminDashboard = ({ setView }: AdminDashboardProps) => {
     const controller = new AbortController();
     setWalkInQuoting(true);
     setWalkInQuoteError(null);
-    fetch(`${API_BASE}/delivery/quote-coords?lat=${walkInDeliveryCoords.lat}&lng=${walkInDeliveryCoords.lng}`, { credentials: 'include' })
+    fetch(`/api/delivery/quote-coords?lat=${walkInDeliveryCoords.lat}&lng=${walkInDeliveryCoords.lng}`, { credentials: 'include' })
       .then(res => res.json())
       .then(data => {
         if (data.success && data.data) setWalkInDeliveryQuote({ distance_km: data.data.distance_km, fee: data.data.fee });
@@ -1088,7 +1054,7 @@ const AdminDashboard = ({ setView }: AdminDashboardProps) => {
       .catch(() => { if (!controller.signal.aborted) { setWalkInDeliveryQuote(null); setWalkInQuoteError('Failed to calculate delivery cost'); } })
       .finally(() => { if (!controller.signal.aborted) setWalkInQuoting(false); });
     // reverse geocode address
-    fetch(`${API_BASE}/delivery/reverse?lat=${walkInDeliveryCoords.lat}&lng=${walkInDeliveryCoords.lng}`, { credentials: 'include' })
+    fetch(`/api/delivery/reverse?lat=${walkInDeliveryCoords.lat}&lng=${walkInDeliveryCoords.lng}`, { credentials: 'include' })
       .then(res => res.json())
       .then(data => {
         if (data.success && data.data?.address) setWalkInForm(prev => ({ ...prev, address: data.data.address }));
@@ -1161,7 +1127,7 @@ const AdminDashboard = ({ setView }: AdminDashboardProps) => {
      setAddMachineConfirm(false);
      setAddingMachine(true);
       try {
-        const res = await fetch(`${API_BASE}/machines`, {
+        const res = await fetch('/api/machines', {
           method: 'POST',
           credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
@@ -1191,7 +1157,7 @@ const AdminDashboard = ({ setView }: AdminDashboardProps) => {
        const newRemainingTime = updates.remaining_time !== undefined
          ? (updates.remaining_time === null ? 0 : updates.remaining_time)
          : (updates.status === 'available' || updates.status === 'maintenance') ? 0 : (machine?.remaining_time ?? 0);
-       const res = await fetch(`${API_BASE}/machines/${id}`, {
+       const res = await fetch(`/api/machines/${id}`, {
          method: 'PATCH',
          credentials: 'include',
          headers: { 'Content-Type': 'application/json' },
@@ -1224,7 +1190,7 @@ const AdminDashboard = ({ setView }: AdminDashboardProps) => {
     
     setDeletingMachine(id);
     try {
-      const res = await fetch(`${API_BASE}/machines/${id}`, {
+      const res = await fetch(`/api/machines/${id}`, {
         method: 'DELETE',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -1263,7 +1229,7 @@ const AdminDashboard = ({ setView }: AdminDashboardProps) => {
     
     setDeletingMachine(null);
     try {
-      const res = await fetch(`${API_BASE}/machines`, {
+      const res = await fetch('/api/machines', {
         method: 'DELETE',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -1288,7 +1254,7 @@ const AdminDashboard = ({ setView }: AdminDashboardProps) => {
   // Pricing management handlers
   const fetchPricing = async () => {
     try {
-      const res = await fetch(`${API_BASE}/pricing`, { credentials: 'include', headers: { 'Content-Type': 'application/json' } });
+      const res = await fetch('/api/pricing', { credentials: 'include', headers: { 'Content-Type': 'application/json' } });
       const data = await parseResponseJson(res);
       if (data.success && data.data) {
         setPricing(data.data);
@@ -1321,7 +1287,7 @@ const AdminDashboard = ({ setView }: AdminDashboardProps) => {
   
   const fetchPriceHistory = async () => {
     try {
-      const res = await fetch(`${API_BASE}/pricing/history`, { credentials: 'include', headers: { 'Content-Type': 'application/json' } });
+      const res = await fetch('/api/pricing/history', { credentials: 'include', headers: { 'Content-Type': 'application/json' } });
       const data = await parseResponseJson(res);
       if (data.success && data.data) {
         setPriceHistory(data.data);
@@ -1369,7 +1335,7 @@ const AdminDashboard = ({ setView }: AdminDashboardProps) => {
         }
       });
       
-      const res = await fetch(`${API_BASE}/pricing/${encodeURIComponent(editingPricing.service_type)}`, {
+      const res = await fetch(`/api/pricing/${encodeURIComponent(editingPricing.service_type)}`, {
         method: 'PATCH',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -1625,7 +1591,8 @@ const AdminDashboard = ({ setView }: AdminDashboardProps) => {
     } else {
       serviceTotal = calculatePriceWithFallback(walkInForm.service_type, walkInForm.quantity, pricingMap);
     }
-    const deliveryFee = walkInForm.delivery_method === 'delivery' ? (walkInDeliveryQuote?.fee || 0) : 0;
+    const firstServiceType = showMultiItem ? (walkInItems.length > 0 ? walkInItems[0].service_type : walkInForm.service_type) : walkInForm.service_type;
+    const deliveryFee = walkInForm.delivery_method === 'delivery' ? getDeliveryFee(pricingMap.get(firstServiceType) || FALLBACK_PRICING[firstServiceType]) : 0;
     return serviceTotal + deliveryFee;
   };
 
@@ -1716,11 +1683,10 @@ const AdminDashboard = ({ setView }: AdminDashboardProps) => {
       special_instructions: '',
       appointment_date: '',
       appointment_time: '',
-        delivery_method: 'pickup',
-        address: '',
-        branch: '',
-        payment_status: 'unpaid',
-        delivery_zone_id: null,
+       delivery_method: 'pickup',
+       address: '',
+       payment_status: 'unpaid',
+       delivery_zone_id: null,
      });
     setWalkInItems([{ service_type: 'Wash & Fold (Clothes)', quantity: 1, unit_price: 0 }]);
     setShowMultiItem(false);
@@ -1773,21 +1739,16 @@ const AdminDashboard = ({ setView }: AdminDashboardProps) => {
           return;
         }
       }
-       const combinedAddress = walkInForm.delivery_method === 'delivery' && walkInForm.branch
-         ? `${walkInForm.address.trim()}, ${walkInForm.branch}`
-         : walkInForm.address;
-       const body = showMultiItem && walkInItems.length > 0
-         ? {
-             ...walkInForm,
-             address: combinedAddress,
-             branch: undefined,
-             items: walkInItems.map(item => ({
-               service_type: item.service_type,
-               quantity: item.quantity,
-               unit_price: item.unit_price,
-             })),
-           }
-         : { ...walkInForm, address: combinedAddress, branch: undefined };
+      const body = showMultiItem && walkInItems.length > 0
+        ? {
+            ...walkInForm,
+            items: walkInItems.map(item => ({
+              service_type: item.service_type,
+              quantity: item.quantity,
+              unit_price: item.unit_price,
+            })),
+          }
+        : walkInForm;
 
       const result = await createWalkInOrder(body);
       setSubmittedWalkInItems(walkInItems);
@@ -1813,7 +1774,7 @@ const AdminDashboard = ({ setView }: AdminDashboardProps) => {
 
   const updateStatus = async (id: number, status: TransactionStatus, price?: number, weight?: number, payment_status?: string, machine_id?: number | null, service_type?: string, dryingTime?: number, remainingTime?: number): Promise<boolean> => {
      try {
-       const res = await fetch(`${API_BASE}/transactions/${id}`, {
+       const res = await fetch(`/api/transactions/${id}`, {
          method: 'PATCH',
          ...getAuthFetchOptions(),
          body: JSON.stringify({ status, total_price: price, weight, payment_status, machine_id, service_type, drying_time: dryingTime, remaining_time: remainingTime }),
@@ -1853,7 +1814,7 @@ const AdminDashboard = ({ setView }: AdminDashboardProps) => {
     
     try {
       // 1. Update transaction with machine_id
-      const transactionRes = await fetch(`${API_BASE}/transactions/${transactionId}`, {
+      const transactionRes = await fetch(`/api/transactions/${transactionId}`, {
         method: 'PATCH',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -1930,7 +1891,7 @@ const AdminDashboard = ({ setView }: AdminDashboardProps) => {
     });
 
     try {
-      const res = await fetch(`${API_BASE}/machines/${id}`, {
+      const res = await fetch(`/api/machines/${id}`, {
         method: 'PATCH',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -1995,7 +1956,7 @@ const AdminDashboard = ({ setView }: AdminDashboardProps) => {
       const formData = new FormData();
       formData.append('image', file);
       
-      const res = await fetch(`${API_BASE}/transactions/${transactionId}/handwash-proof`, {
+      const res = await fetch(`/api/transactions/${transactionId}/handwash-proof`, {
         method: 'POST',
         credentials: 'include',
         body: formData,
@@ -2257,32 +2218,8 @@ const AdminDashboard = ({ setView }: AdminDashboardProps) => {
                   <ChevronRight className="w-4 h-4 rotate-180" /> Back to Dashboard
                 </button>
                 <h1 className="text-3xl font-extrabold text-zinc-900 tracking-tighter">Pricing Management</h1>
-                 <p className="text-zinc-500 font-bold uppercase tracking-widest text-xs mt-1">Manage service prices and view price history</p>
-               </div>
-
-               {/* Delivery tier management */}
-               <div className="bg-white rounded-3xl border-4 border-zinc-50 shadow-xl mb-8 p-6">
-                 <h2 className="text-xl font-black text-zinc-900 mb-2">Delivery Fee Tiers (by Barangay)</h2>
-                 <p className="text-xs text-zinc-500 mb-4">Tier 1: ₱39 (0-2 km) · Tier 2: ₱49 (2-4 km) · Tier 3: ₱65 (4-7 km) · Tier 4: configurable (7+ km)</p>
-                 <div className="flex items-center gap-3">
-                   <label className="text-xs font-black text-zinc-400 uppercase tracking-widest">Tier 4 Fee (₱{TIER4_MIN_FEE}-{TIER4_MAX_FEE})</label>
-                   <input
-                     type="number"
-                     min={TIER4_MIN_FEE}
-                     max={TIER4_MAX_FEE}
-                     value={tier4Fee}
-                     onChange={e => {
-                       const v = Number(e.target.value);
-                       if (Number.isFinite(v)) {
-                         const clamped = Math.min(TIER4_MAX_FEE, Math.max(TIER4_MIN_FEE, v));
-                         setTier4Fee(clamped);
-                         localStorage.setItem('tier4Fee', String(clamped));
-                       }
-                     }}
-                     className="w-24 p-2 bg-zinc-50 border-2 border-zinc-200 rounded-xl font-bold"
-                   />
-                 </div>
-               </div>
+                <p className="text-zinc-500 font-bold uppercase tracking-widest text-xs mt-1">Manage service prices and view price history</p>
+              </div>
               
               {/* Current Pricing */}
                 <div className="bg-white rounded-3xl border-4 border-zinc-50 shadow-xl mb-8">
@@ -2327,8 +2264,10 @@ const AdminDashboard = ({ setView }: AdminDashboardProps) => {
                                       <span>•</span>
                                       <span>₱{p.per_kg_price}/kg</span>
                                     </>
-                                   )}
-                                 </div>
+                                  )}
+                                   <span>•</span>
+                                   <span className="text-blue-600 font-bold">Delivery: ₱{p.delivery_fee}</span>
+                                </div>
                               </div>
                             </div>
                             <button
@@ -2421,17 +2360,17 @@ const AdminDashboard = ({ setView }: AdminDashboardProps) => {
                         </div>
                       )}
                       
-                        <div className="space-y-2 pt-4 border-t border-zinc-100">
-                           <label className="text-xs font-black text-zinc-400 uppercase tracking-widest">Delivery Fee (₱)</label>
-                           <input
-                             type="number"
-                             name="delivery_fee"
-                             defaultValue={editingPricing.delivery_fee}
-                             className="w-full p-3 bg-zinc-50 border-2 border-zinc-200 rounded-xl font-bold"
-                             min="0"
-                           />
-                           <p className="text-[10px] text-zinc-400">Applies to Pick-up & Delivery orders. Drop-off orders have ₱0 delivery fee.</p>
-                         </div>
+                       <div className="space-y-2 pt-4 border-t border-zinc-100">
+                          <label className="text-xs font-black text-zinc-400 uppercase tracking-widest">Delivery Fee (₱)</label>
+                          <input
+                            type="number"
+                            name="delivery_fee"
+                            defaultValue={editingPricing.delivery_fee}
+                            className="w-full p-3 bg-zinc-50 border-2 border-zinc-200 rounded-xl font-bold"
+                            min="0"
+                          />
+                          <p className="text-[10px] text-zinc-400">Default is ₱50. Only applies to Pick-up & Delivery orders. Drop-off orders have ₱0 delivery fee.</p>
+                        </div>
 
                        <div className="flex gap-4 pt-4 border-t border-zinc-100">
                          <button
@@ -2536,8 +2475,8 @@ const AdminDashboard = ({ setView }: AdminDashboardProps) => {
                     const address = (document.getElementById('origin-address') as HTMLInputElement).value;
                     const latitude = parseFloat((document.getElementById('origin-lat') as HTMLInputElement).value);
                     const longitude = parseFloat((document.getElementById('origin-lng') as HTMLInputElement).value);
-                    await fetch(`${API_BASE}/delivery/origin`, { method: 'PUT', ...getAuthFetchOptions(), body: JSON.stringify({ name, address, latitude, longitude }) });
-                    const res = await fetch(`${API_BASE}/delivery/config`, { credentials: 'include' });
+                    await fetch('/api/delivery/origin', { method: 'PUT', ...getAuthFetchOptions(), body: JSON.stringify({ name, address, latitude, longitude }) });
+                    const res = await fetch('/api/delivery/config', { credentials: 'include' });
                     const json = await res.json();
                     if (json.success && json.data) setDeliveryConfig(json.data);
                   }}
@@ -2555,8 +2494,8 @@ const AdminDashboard = ({ setView }: AdminDashboardProps) => {
                     <div key={z.id} className="flex items-center justify-between p-3 bg-zinc-50 rounded-xl">
                       <span className="font-bold">{z.name} ({z.latitude}, {z.longitude})</span>
                       <button onClick={async () => {
-                        await fetch(`${API_BASE}/delivery/zones/${z.id}`, { method: 'DELETE', ...getAuthFetchOptions() });
-                        const res = await fetch(`${API_BASE}/delivery/config`, { credentials: 'include' });
+                        await fetch(`/api/delivery/zones/${z.id}`, { method: 'DELETE', ...getAuthFetchOptions() });
+                        const res = await fetch('/api/delivery/config', { credentials: 'include' });
                         const json = await res.json();
                         if (json.success && json.data) setDeliveryConfig(json.data);
                       }} className="text-rose-600 font-bold">Delete</button>
@@ -2571,8 +2510,8 @@ const AdminDashboard = ({ setView }: AdminDashboardProps) => {
                     const name = (document.getElementById('zone-name') as HTMLInputElement).value;
                     const latitude = parseFloat((document.getElementById('zone-lat') as HTMLInputElement).value);
                     const longitude = parseFloat((document.getElementById('zone-lng') as HTMLInputElement).value);
-                    await fetch(`${API_BASE}/delivery/zones`, { method: 'POST', ...getAuthFetchOptions(), body: JSON.stringify({ name, latitude, longitude }) });
-                    const res = await fetch(`${API_BASE}/delivery/config`, { credentials: 'include' });
+                    await fetch('/api/delivery/zones', { method: 'POST', ...getAuthFetchOptions(), body: JSON.stringify({ name, latitude, longitude }) });
+                    const res = await fetch('/api/delivery/config', { credentials: 'include' });
                     const json = await res.json();
                     if (json.success && json.data) setDeliveryConfig(json.data);
                   }} className="px-4 py-2 bg-blue-500 text-white rounded-lg font-bold">Add Zone</button>
@@ -2587,8 +2526,8 @@ const AdminDashboard = ({ setView }: AdminDashboardProps) => {
                     <div key={b.id} className="flex items-center justify-between p-3 bg-zinc-50 rounded-xl">
                       <span className="font-bold">{b.min_km} - {b.max_km} km: ₱{b.fee}</span>
                       <button onClick={async () => {
-                        await fetch(`${API_BASE}/delivery/bands/${b.id}`, { method: 'DELETE', ...getAuthFetchOptions() });
-                        const res = await fetch(`${API_BASE}/delivery/config`, { credentials: 'include' });
+                        await fetch(`/api/delivery/bands/${b.id}`, { method: 'DELETE', ...getAuthFetchOptions() });
+                        const res = await fetch('/api/delivery/config', { credentials: 'include' });
                         const json = await res.json();
                         if (json.success && json.data) setDeliveryConfig(json.data);
                       }} className="text-rose-600 font-bold">Delete</button>
@@ -2605,8 +2544,8 @@ const AdminDashboard = ({ setView }: AdminDashboardProps) => {
                     const max_km = parseFloat((document.getElementById('band-max') as HTMLInputElement).value);
                     const fee = parseFloat((document.getElementById('band-fee') as HTMLInputElement).value);
                     const sort_order = parseInt((document.getElementById('band-order') as HTMLInputElement).value);
-                    await fetch(`${API_BASE}/delivery/bands`, { method: 'POST', ...getAuthFetchOptions(), body: JSON.stringify({ min_km, max_km, fee, sort_order }) });
-                    const res = await fetch(`${API_BASE}/delivery/config`, { credentials: 'include' });
+                    await fetch('/api/delivery/bands', { method: 'POST', ...getAuthFetchOptions(), body: JSON.stringify({ min_km, max_km, fee, sort_order }) });
+                    const res = await fetch('/api/delivery/config', { credentials: 'include' });
                     const json = await res.json();
                     if (json.success && json.data) setDeliveryConfig(json.data);
                   }} className="px-4 py-2 bg-blue-500 text-white rounded-lg font-bold">Add Band</button>
@@ -2902,29 +2841,17 @@ const AdminDashboard = ({ setView }: AdminDashboardProps) => {
                                <p className="text-sm font-bold text-rose-600">{walkInQuoteError}</p>
                              )}
 
-                               <label className="text-xs font-black text-zinc-400 uppercase tracking-widest flex items-center gap-2">
-                                 <MapPin className="w-4 h-4" /> Barangay
-                               </label>
-                               <select
-                                 className="w-full p-5 bg-zinc-50 border-4 border-transparent rounded-3xl focus:bg-white focus:border-blue-500 outline-none transition-all font-bold text-lg"
-                                 value={walkInForm.branch}
-                                 onChange={e => setWalkInForm({...walkInForm, branch: e.target.value})}
-                                 aria-label="Barangay"
-                               >
-                                 <option value="">Select barangay</option>
-                                 {BRANCHES.map(b => <option key={b} value={b}>{b}</option>)}
-                               </select>
-                               <label className="text-xs font-black text-zinc-400 uppercase tracking-widest flex items-center gap-2">
-                                 <MapPin className="w-4 h-4" /> Where are you?
-                               </label>
-                               <textarea
-                                 required
-                                 value={walkInForm.address}
-                                 onChange={e => setWalkInForm({...walkInForm, address: e.target.value})}
-                                 className="w-full p-5 bg-zinc-50 border-4 border-transparent rounded-3xl focus:bg-white focus:border-blue-500 outline-none transition-all font-bold text-lg"
-                                 placeholder="123 Bubble Lane..."
-                                 rows={3}
-                               />
+                              <label className="text-xs font-black text-zinc-400 uppercase tracking-widest flex items-center gap-2">
+                                <MapPin className="w-4 h-4" /> Where are you?
+                              </label>
+                              <textarea
+                                required
+                                value={walkInForm.address}
+                                onChange={e => setWalkInForm({...walkInForm, address: e.target.value})}
+                                className="w-full p-5 bg-zinc-50 border-4 border-transparent rounded-3xl focus:bg-white focus:border-blue-500 outline-none transition-all font-bold text-lg"
+                                placeholder="123 Bubble Lane..."
+                                rows={3}
+                              />
                             </div>
                          )}
                         <div className="space-y-3">
@@ -3425,47 +3352,19 @@ const AdminDashboard = ({ setView }: AdminDashboardProps) => {
                 </div>
               ))}
             </div>
-           <div className="mt-4 flex justify-end">
-             <button
-                   onClick={() => setShowResetConfirm(true)}
-               className="px-2 py-1 bg-rose-500/20 text-rose-500 rounded hover:bg-rose-500/30 transition-colors text-[10px] font-black uppercase"
-             >
-               RESET MACHINES
-             </button>
-           </div>
-           {showResetConfirm && (
-             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-               <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 sm:p-8">
-                 <h2 className="text-xl font-black text-zinc-900 mb-2">Reset Machines?</h2>
-                 <p className="text-zinc-500 font-medium mb-6">This will reset all machines to their default state. This action cannot be undone.</p>
-                 <div className="flex gap-3">
-                   <button
-                     onClick={async () => {
-                       setResettingMachines(true);
-                       try {
-                         await apiResetMachines();
-                         await fetchData();
-                       } finally {
-                         setResettingMachines(false);
-                         setShowResetConfirm(false);
-                       }
-                     }}
-                     disabled={resettingMachines}
-                     className="flex-1 py-3 bg-rose-500 text-white rounded-2xl font-black hover:bg-rose-600 transition-all disabled:opacity-50"
-                   >
-                     {resettingMachines ? 'Resetting...' : 'Confirm Reset'}
-                   </button>
-                   <button
-                     onClick={() => setShowResetConfirm(false)}
-                     disabled={resettingMachines}
-                     className="flex-1 py-3 bg-zinc-100 text-zinc-600 rounded-2xl font-black hover:bg-zinc-200 transition-all disabled:opacity-50"
-                   >
-                     Cancel
-                   </button>
-                 </div>
-               </div>
-             </div>
-           )}
+          <div className="mt-4 flex justify-end">
+            <button
+                  onClick={async () => {
+                if (confirm('Reset all machines to default state?')) {
+                  await apiResetMachines();
+                  await fetchData();
+                }
+              }}
+              className="px-2 py-1 bg-rose-500/20 text-rose-500 rounded hover:bg-rose-500/30 transition-colors text-[10px] font-black uppercase"
+            >
+              RESET MACHINES
+            </button>
+          </div>
         </div>
 
         {/* Search and Transactions Table */}

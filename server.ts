@@ -68,7 +68,7 @@ if (ADMIN_PASSWORD.includes("change-me") || ADMIN_PASSWORD.includes("change-me-t
 // Use higher cost factor (12) for better security against brute force
 const HASHED_ADMIN_PASSWORD = bcrypt.hashSync(ADMIN_PASSWORD, 12);
 
-// Initialize database via dual-database factory (SQLite default, MySQL optional)
+// Initialize SQLite database
 const db = createDatabase(getDatabaseConfig());
 db.pragma("foreign_keys = ON");
 
@@ -123,7 +123,7 @@ function initializeDatabase() {
     );
   `);
 
-  // Ensure admin_users exists before review_replies (MySQL requires referenced table to exist)
+  // Ensure admin_users exists before review_replies (foreign key reference)
   db.exec(`
     CREATE TABLE IF NOT EXISTS admin_users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1121,46 +1121,6 @@ async function startServer() {
       }
     }
 
-  // Serve index.html for all non-API routes (SPA support)
-  app.get("*", async (req, res, next) => {
-    if (req.path.startsWith("/api")) {
-      // Never return the SPA shell for API requests; respond with structured JSON
-      // so the frontend can parse the error instead of receiving HTML (which
-      // would surface as "Server returned an invalid response (HTTP 200)").
-      return res.status(404).json(apiResponse(false, undefined, "API endpoint not found"));
-    }
-
-    try {
-      // The admin portal lives inside this single page app, so the page shell
-      // itself must never be cached either - otherwise a restored page could
-      // show the admin screens without a valid session.
-      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private");
-      res.setHeader("Pragma", "no-cache");
-      res.setHeader("Expires", "0");
-
-      if (vite) {
-        // Dev mode - use Vite to transform HTML
-        const indexPath = path.join(__dirname, "index.html");
-        const html = await vite.transformIndexHtml(req.path, fs.readFileSync(indexPath, "utf-8"));
-        res.send(html);
-       } else {
-        // Production mode - serve index.html from build/ (fall back to dist/)
-        const fsSync = fs;
-        let indexPath = path.join(__dirname, "build", "index.html");
-        if (!fsSync.existsSync(indexPath)) {
-          indexPath = path.join(__dirname, "dist", "index.html");
-        }
-        if (!fsSync.existsSync(indexPath)) {
-          // API-only deployment: no frontend bundle present.
-          return res.status(404).json(apiResponse(false, undefined, "Not found"));
-        }
-        res.sendFile(indexPath);
-      }
-    } catch (e) {
-      next(e);
-    }
-  });
-
    // Health check (no auth required)
    app.get("/api/health", (req, res) => {
      try {
@@ -1704,8 +1664,8 @@ async function startServer() {
       } catch (error: any) {
         db.prepare("ROLLBACK").run();
         
-        // Check if it's a unique constraint violation on reference_number (SQLite or MySQL)
-        const isDupRef = (error?.code === 'ER_DUP_ENTRY' || error?.errno === 1062 || /Duplicate entry/i.test(error?.message || '') || /UNIQUE constraint failed/i.test(error?.message || '')) && /reference_number/i.test(error?.message || '');
+        // Check if it's a unique constraint violation on reference_number (SQLite)
+        const isDupRef = /UNIQUE constraint failed/i.test(error?.message || '') && /reference_number/i.test(error?.message || '');
         if (isDupRef) {
           console.warn(`[API] Reference number collision on attempt ${attempt + 1}, retrying...`);
           if (attempt === 2) {
@@ -1963,8 +1923,8 @@ async function startServer() {
       } catch (error: any) {
         db.prepare("ROLLBACK").run();
         
-        // Check if it's a unique constraint violation on reference_number (SQLite or MySQL)
-        const isDupRef = (error?.code === 'ER_DUP_ENTRY' || error?.errno === 1062 || /Duplicate entry/i.test(error?.message || '') || /UNIQUE constraint failed/i.test(error?.message || '')) && /reference_number/i.test(error?.message || '');
+        // Check if it's a unique constraint violation on reference_number (SQLite)
+        const isDupRef = /UNIQUE constraint failed/i.test(error?.message || '') && /reference_number/i.test(error?.message || '');
         if (isDupRef) {
           console.warn(`[API] Reference number collision on attempt ${attempt + 1}, retrying...`);
           if (attempt === 2) {
@@ -3440,9 +3400,9 @@ const pricingUpdateSchema = z.object({
       );
     }
     
-    // Handle unique constraint errors (SQLite or MySQL)
+    // Handle unique constraint errors (SQLite)
     const e: any = err;
-    const isDupErr = e?.code === 'ER_DUP_ENTRY' || e?.errno === 1062 || /Duplicate entry/i.test(e?.message || '') || /UNIQUE constraint failed/i.test(e?.message || '');
+    const isDupErr = /UNIQUE constraint failed/i.test(e?.message || '');
     if (isDupErr) {
       if (/reference_number/i.test(err?.message || '')) {
         return res.status(409).json(
@@ -3680,8 +3640,40 @@ const pricingUpdateSchema = z.object({
      }
    });
 
-    // Global error handler (must be last middleware)
-    app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  // Serve index.html for all non-API routes (SPA support) - must be after all API routes
+  app.get("*", async (req, res, next) => {
+    if (req.path.startsWith("/api")) {
+      // Never return the SPA shell for API requests; respond with structured JSON
+      return res.status(404).json(apiResponse(false, undefined, "API endpoint not found"));
+    }
+
+    try {
+      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private");
+      res.setHeader("Pragma", "no-cache");
+      res.setHeader("Expires", "0");
+
+      if (vite) {
+        const indexPath = path.join(__dirname, "index.html");
+        const html = await vite.transformIndexHtml(req.path, fs.readFileSync(indexPath, "utf-8"));
+        res.send(html);
+      } else {
+        const fsSync = fs;
+        let indexPath = path.join(__dirname, "build", "index.html");
+        if (!fsSync.existsSync(indexPath)) {
+          indexPath = path.join(__dirname, "dist", "index.html");
+        }
+        if (!fsSync.existsSync(indexPath)) {
+          return res.status(404).json(apiResponse(false, undefined, "Not found"));
+        }
+        res.sendFile(indexPath);
+      }
+    } catch (e) {
+      next(e);
+    }
+  });
+
+     // Global error handler (must be last middleware)
+     app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
       console.error("[ERROR]", err);
       if (res.headersSent) return next(err);
       res.status(500).json(apiResponse(false, undefined, "Internal server error"));

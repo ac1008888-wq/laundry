@@ -1,5 +1,3 @@
-// Customer accounts management: listing, search, and deletion.
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Users,

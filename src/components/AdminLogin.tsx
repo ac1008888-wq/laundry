@@ -1,5 +1,3 @@
-// Admin login form component with validation and session handling.
-
 import React, { useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import { Loader2, User, Lock, Eye, EyeOff, LayoutDashboard } from 'lucide-react';

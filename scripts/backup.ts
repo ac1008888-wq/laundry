@@ -15,7 +15,6 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Configuration
-const DB_ENGINE = (process.env.DB_ENGINE || 'sqlite').toLowerCase();
 const DB_NAME = process.env.DB_NAME || 'laundry.db';
 const BACKUP_DIR = process.env.BACKUP_DIR || 'backups';
 
